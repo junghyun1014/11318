@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cozy Desk Illustration Planner</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Confetti JS -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #0b0f19;
+            color: #332d3b;
+            overflow: hidden;
+            transition: background-color 0.8s ease;
+        }
+
+        .handwritten {
+            font-family: 'Gaegu', cursive;
+        }
+
+        /* Dynamic Time-of-day Background Themes */
+        /* 1. Dawn (새벽) */
+        .theme-dawn-wall { background: linear-gradient(to bottom, #1d1b38, #2a244d, #3c2f5d); }
+        .theme-dawn-sky { background: linear-gradient(to bottom, #151329, #2b214a, #523863); }
+        .theme-dawn-sunmoon { background: #ffd6e0; box-shadow: 0 0 20px rgba(255, 214, 224, 0.6); }
+
+        /* 2. Day (밝은 낮) */
+        .theme-day-wall { background: linear-gradient(to bottom, #83b2e3, #aed2f2, #e2f0fb); }
+        .theme-day-sky { background: linear-gradient(to bottom, #3fa8e0, #73cbfa, #cbebfb); }
+        .theme-day-sunmoon { background: #fff275; box-shadow: 0 0 40px rgba(255, 242, 117, 1); }
+
+        /* 3. Sunset (노을/저녁) */
+        .theme-sunset-wall { background: linear-gradient(to bottom, #381a2e, #5c2738, #823841); }
+        .theme-sunset-sky { background: linear-gradient(to bottom, #2b1029, #702641, #ce5a42, #e8985e); }
+        .theme-sunset-sunmoon { background: #ff7e5f; box-shadow: 0 0 25px rgba(255, 126, 95, 0.8); }
+
+        /* 4. Night (밤) */
+        .theme-night-wall { background: linear-gradient(to bottom, #100b17, #1f1629, #2d1e38); }
+        .theme-night-sky { background: linear-gradient(to bottom, #080a14, #181530); }
+        .theme-night-sunmoon { background: #fef3c7; box-shadow: 0 0 20px rgba(254, 243, 199, 0.6); }
+
+        /* Paper Texture & Lines */
+        .notebook-paper {
+            background: #fffdf7;
+            background-image: linear-gradient(#e8e2d5 1px, transparent 1px);
+            background-size: 100% 2.4rem;
+            box-shadow: 
+                -16px 20px 40px rgba(0, 0, 0, 0.4),
+                2px 2px 10px rgba(0, 0, 0, 0.1);
+            perspective: 1200px;
+            transform-style: preserve-3d;
+            transition: transform 0.4s ease, opacity 0.3s ease;
+        }
+
+        /* Page Flip Animations */
+        .page-flip-next {
+            animation: flipNext 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+        }
+
+        .page-flip-prev {
+            animation: flipPrev 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+        }
+
+        @keyframes flipNext {
+            0% { transform: rotateY(0deg) scale(1); opacity: 1; }
+            50% { transform: rotateY(-18deg) scale(0.98); opacity: 0.8; }
+            100% { transform: rotateY(0deg) scale(1); opacity: 1; }
+        }
+
+        @keyframes flipPrev {
+            0% { transform: rotateY(0deg) scale(1); opacity: 1; }
+            50% { transform: rotateY(18deg) scale(0.98); opacity: 0.8; }
+            100% { transform: rotateY(0deg) scale(1); opacity: 1; }
+        }
+
+        .notebook-binder {
+            background: linear-gradient(90deg, #b8b09e 0%, #8f8877 50%, #b8b09e 100%);
+            box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d4c8b5;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-2 sm:p-6 bg-slate-950 select-none">
+
+    <!-- Room & Desk Frame -->
+    <div class="relative w-full max-w-5xl h-[820px] rounded-3xl overflow-hidden shadow-2xl border-4 border-amber-950/70 bg-[#1e1626] flex flex-col justify-between">
+        
+        <!-- Time-of-day Wall Background (Dynamic Class) -->
+        <div id="room-wall-bg" class="absolute inset-0 transition-all duration-1000 theme-night-wall"></div>
+
+        <!-- Date, Time & Profile Section (Top-Left Corner) -->
+        <div class="absolute top-8 left-10 z-30 flex flex-col items-start gap-2">
+            <div class="flex items-center gap-2">
+                <div class="bg-amber-950/40 backdrop-blur-sm border border-amber-200/20 px-4 py-2.5 rounded-2xl shadow-lg flex flex-col items-start">
+                    <div id="current-date" class="text-amber-200/90 handwritten text-xl font-bold tracking-wider"></div>
+                    <div id="current-time" class="text-amber-100 handwritten text-2xl font-bold -mt-1 tracking-widest"></div>
+                </div>
+
+                <!-- Timer Button Next to Clock -->
+                <button onclick="openTimerModal()" class="h-full bg-amber-950/60 hover:bg-amber-900/80 backdrop-blur-sm border border-amber-200/30 px-3.5 py-3 rounded-2xl shadow-lg transition text-amber-100 flex flex-col items-center justify-center gap-0.5 group active:scale-95">
+                    <span class="text-2xl group-hover:scale-110 transition">⏱️</span>
+                    <span class="handwritten text-xs text-amber-200 font-bold">타이머</span>
+                </button>
+            </div>
+
+            <!-- Profile & XP Button -->
+            <button onclick="openProfileModal()" class="flex flex-col gap-1.5 bg-amber-950/60 hover:bg-amber-900/70 backdrop-blur-sm border border-amber-200/30 p-2.5 rounded-2xl shadow-lg transition text-amber-100 group w-48 text-left">
+                <div class="flex items-center gap-2.5 w-full">
+                    <div class="relative w-9 h-9 rounded-full bg-amber-700/80 border border-amber-300/50 flex items-center justify-center text-lg shadow-inner group-hover:scale-105 transition flex-shrink-0">
+                        <span id="user-avatar-display">👤</span>
+                        <span id="user-level-badge" class="absolute -bottom-1 -right-1 bg-amber-400 text-amber-950 text-[9px] font-extrabold px-1 py-0.2 rounded-full border border-amber-950 shadow-sm leading-tight scale-90">
+                            Lv.1
+                        </span>
+                    </div>
+                    <div class="flex flex-col items-start leading-tight flex-1 truncate">
+                        <span id="user-nickname" class="handwritten text-lg font-bold text-amber-100 group-hover:text-amber-200 truncate">열공하는 학생</span>
+                        <span id="user-rank" class="text-[11px] text-amber-300/80 handwritten -mt-1">초보 공부러</span>
+                    </div>
+                </div>
+
+                <!-- XP Bar -->
+                <div class="w-full bg-amber-950/80 rounded-full h-2 border border-amber-200/20 overflow-hidden relative">
+                    <div id="xp-bar-fill" class="bg-gradient-to-r from-amber-400 to-amber-200 h-full transition-all duration-500 rounded-full" style="width: 0%"></div>
+                </div>
+                <div class="flex justify-between w-full text-[10px] text-amber-300/60 handwritten px-0.5">
+                    <span>EXP</span>
+                    <span id="xp-text">0 / 100</span>
+                </div>
+            </button>
+        </div>
+
+        <!-- Window View (Moon, Sun and Stars - Dynamic) -->
+        <div class="absolute top-10 right-14 w-48 h-64 border-4 border-[#4a3628] rounded-t-full bg-slate-900 overflow-hidden shadow-2xl hidden md:block z-10">
+            <!-- Window Sky Background -->
+            <div id="window-sky-bg" class="absolute inset-0 transition-all duration-1000 theme-night-sky">
+                <!-- Stars (Shown in Night/Dawn) -->
+                <div id="window-stars" class="transition-opacity duration-1000">
+                    <div class="absolute top-6 left-8 w-1 h-1 bg-white rounded-full opacity-80"></div>
+                    <div class="absolute top-14 left-24 w-1.5 h-1.5 bg-amber-100 rounded-full opacity-90"></div>
+                    <div class="absolute top-24 left-10 w-1 h-1 bg-white rounded-full opacity-60"></div>
+                </div>
+                <!-- Sun / Moon Celestial Body -->
+                <div id="window-celestial" class="absolute w-10 h-10 rounded-full transition-all duration-1000 theme-night-sunmoon"></div>
+            </div>
+            <!-- Window Grid -->
+            <div class="absolute inset-0 border-r-2 border-b-2 border-[#4a3628]/80 left-1/2"></div>
+            <div class="absolute inset-0 border-t-2 border-[#4a3628]/80 top-1/2"></div>
+        </div>
+
+        <!-- Wooden Desk Surface -->
+        <div class="relative w-full h-[580px] mt-auto bg-gradient-to-b from-[#63452f] via-[#523723] to-[#402a18] rounded-b-2xl border-t-8 border-[#7a583d] p-4 sm:p-8 flex items-center justify-center z-20 shadow-inner">
+            
+            <div class="absolute inset-0 opacity-10 bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
+
+            <!-- Page Navigation Arrow Left -->
+            <button onclick="changePage(-1)" title="이전 페이지" class="absolute left-4 sm:left-8 z-40 p-3 bg-amber-900/80 hover:bg-amber-950 text-amber-100 rounded-full shadow-xl border border-amber-200/30 transition transform hover:-translate-x-1 active:scale-90 flex items-center justify-center">
+                <span class="text-xl sm:text-2xl font-bold">◀</span>
+            </button>
+
+            <!-- Page Navigation Arrow Right -->
+            <button onclick="changePage(1)" title="다음 페이지" class="absolute right-4 sm:right-8 z-40 p-3 bg-amber-900/80 hover:bg-amber-950 text-amber-100 rounded-full shadow-xl border border-amber-200/30 transition transform hover:translate-x-1 active:scale-90 flex items-center justify-center">
+                <span class="text-xl sm:text-2xl font-bold">▶</span>
+            </button>
+
+            <!-- Open Notebook -->
+            <div id="notebook-container" class="relative w-full max-w-2xl h-[480px] notebook-paper rounded-2xl p-5 sm:p-7 flex flex-col border border-amber-100/80 z-20">
+                
+                <!-- Ring Binder -->
+                <div class="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-8 flex flex-col justify-around py-6 z-30 pointer-events-none">
+                    <div class="w-full h-3.5 notebook-binder rounded-full"></div>
+                    <div class="w-full h-3.5 notebook-binder rounded-full"></div>
+                    <div class="w-full h-3.5 notebook-binder rounded-full"></div>
+                    <div class="w-full h-3.5 notebook-binder rounded-full"></div>
+                    <div class="w-full h-3.5 notebook-binder rounded-full"></div>
+                </div>
+
+                <!-- Notebook Header -->
+                <div class="border-b-2 border-amber-900/20 pb-2 mb-3 flex justify-between items-center z-20">
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-2xl sm:text-3xl font-bold handwritten text-amber-950 flex items-center gap-2">
+                            <span>📖</span>
+                            <span id="page-title">공부 플래너</span>
+                        </h1>
+                        <span id="completed-count" class="handwritten text-lg font-bold text-amber-800 ml-1">0 / 0 완료</span>
+                    </div>
+
+                    <!-- Page Counter Badge & Today's Goal Button -->
+                    <div class="flex items-center gap-2">
+                        <span id="page-date-badge" class="px-2.5 py-1 bg-amber-200/60 border border-amber-900/20 rounded-lg handwritten text-base font-bold text-amber-900">
+                            오늘 (Page 1)
+                        </span>
+                        
+                        <button id="finish-day-btn" onclick="openFocusModal()" 
+                                class="px-3 py-1 bg-amber-800 hover:bg-amber-900 text-amber-50 handwritten text-lg font-bold rounded-xl shadow-md transition flex items-center gap-1.5 transform active:scale-95">
+                            <span>🎉</span> 목표 달성!
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Planner Input Section -->
+                <form id="todo-form" onsubmit="addTodo(event)" class="flex flex-wrap sm:flex-nowrap gap-2 mb-3 z-20">
+                    <input type="text" id="todo-text" placeholder="공부할 내용을 입력하세요..." required
+                           class="flex-1 px-3 py-1.5 bg-amber-50/70 border border-amber-200/80 rounded-xl handwritten text-lg text-amber-950 placeholder-amber-800/40 focus:outline-none focus:ring-2 focus:ring-amber-700/50">
+                    
+                    <div class="flex gap-2">
+                        <input type="time" id="todo-time" value="20:00" required
+                               class="px-2 py-1.5 bg-amber-50/70 border border-amber-200/80 rounded-xl handwritten text-lg text-amber-950 focus:outline-none focus:ring-2 focus:ring-amber-700/50">
+                        
+                        <button type="submit" 
+                                class="px-4 py-1.5 bg-amber-900 hover:bg-amber-950 text-amber-100 handwritten text-lg font-bold rounded-xl shadow transition">
+                            추가
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Planner List Container -->
+                <div id="todo-list" class="flex-1 overflow-y-auto space-y-2 pr-1 z-20">
+                    <!-- Dynamic List Items -->
+                </div>
+
+                <!-- Notebook Bottom Page Info (Dots Removed) -->
+                <div class="mt-2 pt-2 border-t border-amber-900/10 flex justify-between items-center text-xs handwritten text-amber-900/70 z-20">
+                    <span id="page-footer-info">Page 1 / 30</span>
+                    <span class="text-amber-800/50">◀ ▶ 버튼으로 페이지 이동</span>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Focus Rating Modal -->
+    <div id="focus-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-[#fffdf7] border-2 border-amber-900/30 rounded-3xl p-6 max-w-sm w-full shadow-2xl flex flex-col items-center gap-4 handwritten">
+            <h2 class="text-2xl font-bold text-amber-950 flex items-center gap-2">
+                <span>🌟</span> 오늘 공부 집중도 평가
+            </h2>
+            <p class="text-amber-900/80 text-center text-lg -mt-2">
+                오늘 하루 얼마나 몰입하셨나요?<br/>1점부터 5점까지 체크해주세요!
+            </p>
+
+            <!-- Rating Stars (1-5) -->
+            <div class="flex gap-2 my-2" id="star-rating-container">
+                <button type="button" onclick="setFocusRating(1)" class="star-btn text-3xl transition hover:scale-125 focus:outline-none" data-rating="1">⭐</button>
+                <button type="button" onclick="setFocusRating(2)" class="star-btn text-3xl transition hover:scale-125 focus:outline-none" data-rating="2">⭐</button>
+                <button type="button" onclick="setFocusRating(3)" class="star-btn text-3xl transition hover:scale-125 focus:outline-none" data-rating="3">⭐</button>
+                <button type="button" onclick="setFocusRating(4)" class="star-btn text-3xl transition hover:scale-125 focus:outline-none" data-rating="4">⭐</button>
+                <button type="button" onclick="setFocusRating(5)" class="star-btn text-3xl transition hover:scale-125 focus:outline-none" data-rating="5">⭐</button>
+            </div>
+
+            <div id="focus-score-label" class="text-amber-900 font-bold text-lg">점수를 선택해주세요</div>
+
+            <div class="flex gap-3 w-full mt-2">
+                <button onclick="closeFocusModal()" class="flex-1 py-2 bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-lg rounded-xl transition">
+                    취소
+                </button>
+                <button id="confirm-focus-btn" disabled onclick="confirmFocusAndFinish()" class="flex-1 py-2 bg-amber-800 hover:bg-amber-900 disabled:opacity-50 text-amber-50 font-bold text-lg rounded-xl shadow transition">
+                    달성 완료!
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Edit Modal -->
+    <div id="profile-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-[#fffdf7] border-2 border-amber-900/30 rounded-3xl p-6 max-w-md w-full shadow-2xl flex flex-col gap-4 handwritten max-h-[85vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-amber-900/10 pb-2">
+                <h2 class="text-2xl font-bold text-amber-950 flex items-center gap-2">
+                    <span>👑</span> 프로필 & 업적
+                </h2>
+                <button onclick="closeProfileModal()" class="text-amber-900/50 hover:text-amber-950 font-bold text-xl px-2">✕</button>
+            </div>
+
+            <!-- Profile Info Edit -->
+            <div class="bg-amber-100/40 p-3 rounded-2xl border border-amber-900/10 flex flex-col gap-3">
+                <div class="flex flex-col items-center gap-1.5">
+                    <label class="text-amber-900 text-sm font-bold">프로필 아이콘 선택</label>
+                    <div class="flex gap-1.5 flex-wrap justify-center bg-amber-50 p-2 rounded-xl border border-amber-900/10 w-full" id="avatar-option-list">
+                        <button type="button" onclick="selectAvatar('👤')" class="avatar-opt-btn text-2xl p-1 rounded-lg transition hover:scale-110">👤</button>
+                        <button type="button" onclick="selectAvatar('🎓')" class="avatar-opt-btn text-2xl p-1 rounded-lg transition hover:scale-110">🎓</button>
+                        <button type="button" onclick="selectAvatar('🐱')" class="avatar-opt-btn text-2xl p-1 rounded-lg transition hover:scale-110">🐱</button>
+                        <button type="button" onclick="selectAvatar('🐶')" class="avatar-opt-btn text-2xl p-1 rounded-lg transition hover:scale-110">🐶</button>
+                        <button type="button" onclick="selectAvatar('🦊')" class="avatar-opt-btn text-2xl p-1 rounded-lg transition hover:scale-110">🦊</button>
+                        <button type="button" onclick="selectAvatar('☕')" class="avatar-opt-btn text-2xl p-1 rounded-lg transition hover:scale-110">☕</button>
+                        <button type="button" onclick="selectAvatar('📖')" class="avatar-opt-btn text-2xl p-1 rounded-lg transition hover:scale-110">📖</button>
+                        <button type="button" onclick="selectAvatar('🐣')" class="avatar-opt-btn text-2xl p-1 rounded-lg transition hover:scale-110">🐣</button>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <input type="text" id="modal-nickname-input" maxlength="12" placeholder="닉네임 입력..." 
+                           class="flex-1 px-3 py-1.5 bg-amber-50 border border-amber-300 rounded-xl handwritten text-base text-amber-950 focus:outline-none focus:ring-2 focus:ring-amber-700/50">
+                    <button onclick="saveProfileChanges()" class="px-4 py-1.5 bg-amber-800 hover:bg-amber-900 text-amber-50 font-bold text-base rounded-xl shadow transition">
+                        저장
+                    </button>
+                </div>
+            </div>
+
+            <!-- XP Stats Box -->
+            <div class="bg-amber-900/90 text-amber-50 p-3.5 rounded-2xl flex flex-col gap-2 shadow-inner">
+                <div class="flex justify-between items-center text-sm">
+                    <span class="font-bold text-amber-200" id="modal-user-rank">초보 공부러</span>
+                    <span class="text-xs text-amber-300" id="modal-user-level">Lv.1</span>
+                </div>
+                <div class="w-full bg-amber-950 rounded-full h-3 border border-amber-200/30 overflow-hidden relative">
+                    <div id="modal-xp-bar-fill" class="bg-gradient-to-r from-amber-400 to-amber-200 h-full transition-all duration-500 rounded-full" style="width: 0%"></div>
+                </div>
+                <div class="flex justify-between text-xs text-amber-200/80">
+                    <span>현재 경험치</span>
+                    <span id="modal-xp-text">0 / 100 XP</span>
+                </div>
+            </div>
+
+            <!-- Study Analytics Charts Section -->
+            <div class="flex flex-col gap-3 border-t border-b border-amber-900/10 py-3">
+                <h3 class="text-lg font-bold text-amber-950 flex items-center justify-between">
+                    <span>📊 공부 패턴 분석</span>
+                    <span id="total-study-summary" class="text-xs text-amber-800 font-normal">총 공부 0분</span>
+                </h3>
+
+                <!-- Daily Study Time Bar Chart -->
+                <div class="bg-amber-100/50 p-3 rounded-2xl border border-amber-900/10 flex flex-col gap-1">
+                    <span class="text-xs font-bold text-amber-900">📅 최근 7일간 공부 시간 (분)</span>
+                    <div class="h-40 w-full relative">
+                        <canvas id="dailyTimeChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Hourly Average Focus Analysis Chart -->
+                <div class="bg-amber-100/50 p-3 rounded-2xl border border-amber-900/10 flex flex-col gap-1">
+                    <span class="text-xs font-bold text-amber-900">⏰ 시간대별 평균 몰입도 (1~5점)</span>
+                    <div class="h-40 w-full relative">
+                        <canvas id="hourlyFocusChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Achievements List -->
+            <div class="flex flex-col gap-2">
+                <h3 class="text-lg font-bold text-amber-950 flex items-center justify-between">
+                    <span>🏆 업적 목록</span>
+                    <span id="achievement-unlocked-count" class="text-xs text-amber-800 font-normal">0 / 0 달성</span>
+                </h3>
+
+                <div id="achievements-list" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    <!-- Dynamic Achievement Items -->
+                </div>
+            </div>
+
+            <button onclick="closeProfileModal()" class="w-full py-2 bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-lg rounded-xl transition mt-1">
+                닫기
+            </button>
+        </div>
+    </div>
+
+    <!-- Timer Stopwatch Modal -->
+    <div id="timer-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-[#fffdf7] border-2 border-amber-900/30 rounded-3xl p-6 max-w-sm w-full shadow-2xl flex flex-col items-center gap-4 handwritten">
+            <div class="flex justify-between items-center w-full border-b border-amber-900/10 pb-2">
+                <h2 class="text-2xl font-bold text-amber-950 flex items-center gap-2">
+                    <span>⏱️</span> 집중 공부 타이머
+                </h2>
+                <button onclick="closeTimerModal()" class="text-amber-900/50 hover:text-amber-950 font-bold text-xl px-2">✕</button>
+            </div>
+
+            <p class="text-amber-900/80 text-center text-base -mt-1">
+                공부 시간을 측정하여 기록하세요!
+            </p>
+
+            <!-- Timer Display -->
+            <div class="my-2 px-6 py-4 bg-amber-100/60 border border-amber-300 rounded-2xl shadow-inner flex items-center justify-center">
+                <span id="stopwatch-display" class="text-4xl font-bold text-amber-950 tracking-widest font-mono">00:00:00</span>
+            </div>
+
+            <!-- Timer Controls -->
+            <div class="flex gap-2 w-full">
+                <button id="timer-start-btn" onclick="startTimer()" class="flex-1 py-2.5 bg-amber-800 hover:bg-amber-900 text-amber-50 font-bold text-lg rounded-xl shadow transition">
+                    시작
+                </button>
+                <button id="timer-pause-btn" onclick="pauseTimer()" disabled class="flex-1 py-2.5 bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-lg rounded-xl transition disabled:opacity-50">
+                    일시정지
+                </button>
+                <button id="timer-reset-btn" onclick="resetTimer()" class="py-2.5 px-4 bg-rose-800/80 hover:bg-rose-900 text-rose-50 font-bold text-lg rounded-xl shadow transition">
+                    리셋
+                </button>
+            </div>
+
+            <button onclick="closeTimerModal()" class="w-full py-2 bg-amber-200/70 hover:bg-amber-300 text-amber-950 font-bold text-base rounded-xl transition">
+                닫기
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // State Initialization with LocalStorage
+        let userProfile = JSON.parse(localStorage.getItem('cozy_user_profile')) || {
+            nickname: '열공하는 학생',
+            avatar: '👤',
+            level: 1,
+            xp: 0,
+            xpToNextLevel: 100,
+            claimedAchievements: {},
+            stats: {
+                totalStudySeconds: 0,
+                goalsFinishedCount: 0,
+                perfectFocusCount: 0,
+                tasksCompletedCount: 0,
+                dailyStudyMinutes: {},
+                hourlyFocusRatings: {}
+            }
+        };
+
+        if (!userProfile.claimedAchievements) userProfile.claimedAchievements = {};
+        if (!userProfile.stats) userProfile.stats = {};
+        userProfile.stats.totalStudySeconds = userProfile.stats.totalStudySeconds || 0;
+        userProfile.stats.goalsFinishedCount = userProfile.stats.goalsFinishedCount || 0;
+        userProfile.stats.perfectFocusCount = userProfile.stats.perfectFocusCount || 0;
+        userProfile.stats.tasksCompletedCount = userProfile.stats.tasksCompletedCount || 0;
+        userProfile.stats.dailyStudyMinutes = userProfile.stats.dailyStudyMinutes || {};
+        userProfile.stats.hourlyFocusRatings = userProfile.stats.hourlyFocusRatings || {};
+
+        let tempSelectedAvatar = userProfile.avatar || '👤';
+
+        // Timer Stopwatch Variables
+        let timerInterval = null;
+        let timerSeconds = 0;
+        let isTimerRunning = false;
+
+        function openTimerModal() {
+            document.getElementById('timer-modal').classList.remove('hidden');
+        }
+
+        function closeTimerModal() {
+            document.getElementById('timer-modal').classList.add('hidden');
+        }
+
+        function updateStopwatchDisplay() {
+            const hrs = String(Math.floor(timerSeconds / 3600)).padStart(2, '0');
+            const mins = String(Math.floor((timerSeconds % 3600) / 60)).padStart(2, '0');
+            const secs = String(timerSeconds % 60).padStart(2, '0');
+            const displayEl = document.getElementById('stopwatch-display');
+            if (displayEl) {
+                displayEl.textContent = `${hrs}:${mins}:${secs}`;
+            }
+        }
+
+        function startTimer() {
+            if (isTimerRunning) return;
+            isTimerRunning = true;
+
+            document.getElementById('timer-start-btn').disabled = true;
+            document.getElementById('timer-pause-btn').disabled = false;
+
+            timerInterval = setInterval(() => {
+                timerSeconds++;
+                userProfile.stats.totalStudySeconds = (userProfile.stats.totalStudySeconds || 0) + 1;
+                
+                // Track daily study minutes
+                const todayKey = new Date().toISOString().split('T')[0];
+                const currentMins = userProfile.stats.dailyStudyMinutes[todayKey] || 0;
+                userProfile.stats.dailyStudyMinutes[todayKey] = Math.floor((userProfile.stats.dailyStudyMinutes[todayKey] || 0)) + (1 / 60);
+
+                saveUserProfile();
+                updateStopwatchDisplay();
+            }, 1000);
+        }
+
+        function pauseTimer() {
+            if (!isTimerRunning) return;
+            isTimerRunning = false;
+            clearInterval(timerInterval);
+
+            document.getElementById('timer-start-btn').disabled = false;
+            document.getElementById('timer-pause-btn').disabled = true;
+        }
+
+        function resetTimer() {
+            pauseTimer();
+            timerSeconds = 0;
+            updateStopwatchDisplay();
+        }
+
+        // Notebook Page Store and Global State Variables (30 Pages Max)
+        const maxPages = 30;
+        let currentPageIndex = 0;
+        let pageStore = JSON.parse(localStorage.getItem('cozy_pages_data')) || Array.from({ length: maxPages }, () => []);
+
+        // Ensure pageStore capacity is updated to maxPages
+        if (pageStore.length < maxPages) {
+            while (pageStore.length < maxPages) {
+                pageStore.push([]);
+            }
+        }
+
+        // Rating Global Variables
+        let selectedFocusRating = 0;
+
+        // Chart Instance Variables
+        let dailyChartInstance = null;
+        let hourlyChartInstance = null;
+
+        function getRankTitle(level) {
+            if (level >= 20) return '공부의 신 👑';
+            if (level >= 15) return '열정 마스터 🔥';
+            if (level >= 10) return '집중의 달인 🎯';
+            if (level >= 5) return '성실한 모범생 📚';
+            return '초보 공부러 🌱';
+        }
+
+        function saveUserProfile() {
+            localStorage.setItem('cozy_user_profile', JSON.stringify(userProfile));
+            updateProfileUI();
+        }
+
+        function updateProfileUI() {
+            const nicknameEl = document.getElementById('user-nickname');
+            const rankEl = document.getElementById('user-rank');
+            const avatarEl = document.getElementById('user-avatar-display');
+            const levelBadgeEl = document.getElementById('user-level-badge');
+            const xpBarFill = document.getElementById('xp-bar-fill');
+            const xpText = document.getElementById('xp-text');
+
+            const rankTitle = getRankTitle(userProfile.level);
+
+            if (nicknameEl) nicknameEl.textContent = userProfile.nickname;
+            if (rankEl) rankEl.textContent = rankTitle;
+            if (avatarEl) avatarEl.textContent = userProfile.avatar || '👤';
+            if (levelBadgeEl) levelBadgeEl.textContent = `Lv.${userProfile.level}`;
+
+            const xpPercent = Math.min(100, Math.floor((userProfile.xp / userProfile.xpToNextLevel) * 100));
+            if (xpBarFill) xpBarFill.style.width = `${xpPercent}%`;
+            if (xpText) xpText.textContent = `${userProfile.xp} / ${userProfile.xpToNextLevel}`;
+
+            // Update Modal UI elements
+            const modalRank = document.getElementById('modal-user-rank');
+            const modalLevel = document.getElementById('modal-user-level');
+            const modalXpBar = document.getElementById('modal-xp-bar-fill');
+            const modalXpText = document.getElementById('modal-xp-text');
+
+            if (modalRank) modalRank.textContent = rankTitle;
+            if (modalLevel) modalLevel.textContent = `Lv.${userProfile.level}`;
+            if (modalXpBar) modalXpBar.style.width = `${xpPercent}%`;
+            if (modalXpText) modalXpText.textContent = `${userProfile.xp} / ${userProfile.xpToNextLevel} XP`;
+        }
+
+        function renderAnalyticsCharts() {
+            const totalMins = Math.floor(userProfile.stats.totalStudySeconds / 60);
+            const totalHrs = (totalMins / 60).toFixed(1);
+            const summaryEl = document.getElementById('total-study-summary');
+            if (summaryEl) {
+                summaryEl.textContent = `누적 ${totalMins}분 (${totalHrs}시간)`;
+            }
+
+            // 1. Prepare Daily Study Time Data
+            const daysLabels = [];
+            const dailyData = [];
+            
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                const dateKey = d.toISOString().split('T')[0];
+                const dayName = ['일','월','화','수','목','금','토'][d.getDay()];
+                daysLabels.push(`${d.getMonth() + 1}/${d.getDate()} (${dayName})`);
+                dailyData.push(userProfile.stats.dailyStudyMinutes[dateKey] || 0);
+            }
+
+            if (dailyChartInstance) dailyChartInstance.destroy();
+            if (hourlyChartInstance) hourlyChartInstance.destroy();
+
+            const ctxDaily = document.getElementById('dailyTimeChart');
+            if (ctxDaily) {
+                dailyChartInstance = new Chart(ctxDaily, {
+                    type: 'bar',
+                    data: {
+                        labels: daysLabels,
+                        datasets: [{
+                            label: '공부 시간 (분)',
+                            data: dailyData,
+                            backgroundColor: '#78350f',
+                            borderRadius: 6,
+                            hoverBackgroundColor: '#92400e'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { color: '#78350f', font: { family: 'Gaegu', size: 14 } },
+                                grid: { color: 'rgba(120, 53, 15, 0.1)' }
+                            },
+                            x: {
+                                ticks: { color: '#78350f', font: { family: 'Gaegu', size: 13 } },
+                                grid: { display: false }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // 2. Prepare Hourly Focus Data
+            const timeSlotLabels = ['새벽 (00-06)', '아침 (06-12)', '오후 (12-18)', '저녁 (18-24)'];
+            const timeSlotRatings = [[], [], [], []];
+
+            Object.keys(userProfile.stats.hourlyFocusRatings).forEach(hourStr => {
+                const hour = parseInt(hourStr, 10);
+                const ratings = userProfile.stats.hourlyFocusRatings[hourStr];
+
+                let slotIdx = 0;
+                if (hour >= 6 && hour < 12) slotIdx = 1;
+                else if (hour >= 12 && hour < 18) slotIdx = 2;
+                else if (hour >= 18 && hour < 24) slotIdx = 3;
+
+                timeSlotRatings[slotIdx].push(...ratings);
+            });
+
+            const timeSlotAverages = timeSlotRatings.map(arr => {
+                if (!arr || arr.length === 0) return 0;
+                const sum = arr.reduce((a, b) => a + b, 0);
+                return (sum / arr.length).toFixed(1);
+            });
+
+            const ctxHourly = document.getElementById('hourlyFocusChart');
+            if (ctxHourly) {
+                hourlyChartInstance = new Chart(ctxHourly, {
+                    type: 'line',
+                    data: {
+                        labels: timeSlotLabels,
+                        datasets: [{
+                            label: '평균 몰입도 (1~5)',
+                            data: timeSlotAverages,
+                            borderColor: '#b45309',
+                            backgroundColor: 'rgba(180, 83, 9, 0.15)',
+                            fill: true,
+                            tension: 0.35,
+                            pointBackgroundColor: '#78350f',
+                            pointRadius: 5
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: {
+                                min: 0,
+                                max: 5,
+                                ticks: { stepSize: 1, color: '#78350f', font: { family: 'Gaegu', size: 14 } },
+                                grid: { color: 'rgba(120, 53, 15, 0.1)' }
+                            },
+                            x: {
+                                ticks: { color: '#78350f', font: { family: 'Gaegu', size: 13 } },
+                                grid: { display: false }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        function updateClock() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const date = String(now.getDate()).padStart(2, '0');
+            const days = ['일', '월', '화', '수', '목', '금', '토'];
+            const dayName = days[now.getDay()];
+
+            const currentHour = now.getHours();
+            const hours = String(currentHour).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+
+            const dateEl = document.getElementById('current-date');
+            const timeEl = document.getElementById('current-time');
+
+            if (dateEl) dateEl.textContent = `${year}.${month}.${date} (${dayName})`;
+            if (timeEl) timeEl.textContent = `${hours}:${minutes}:${seconds}`;
+
+            updateTimeTheme(currentHour);
+        }
+
+        function updateTimeTheme(hour) {
+            const wallBg = document.getElementById('room-wall-bg');
+            const skyBg = document.getElementById('window-sky-bg');
+            const celestial = document.getElementById('window-celestial');
+            const stars = document.getElementById('window-stars');
+
+            if (!wallBg || !skyBg || !celestial) return;
+
+            const allThemes = [
+                'theme-dawn-wall', 'theme-day-wall', 'theme-sunset-wall', 'theme-night-wall',
+                'theme-dawn-sky', 'theme-day-sky', 'theme-sunset-sky', 'theme-night-sky',
+                'theme-dawn-sunmoon', 'theme-day-sunmoon', 'theme-sunset-sunmoon', 'theme-night-sunmoon'
+            ];
+            wallBg.classList.remove(...allThemes);
+            skyBg.classList.remove(...allThemes);
+            celestial.classList.remove(...allThemes);
+
+            let themeKey = 'night';
+
+            if (hour >= 4 && hour < 7) {
+                themeKey = 'dawn';
+                if (stars) stars.style.opacity = '0.4';
+                celestial.style.top = '28px';
+                celestial.style.right = '24px';
+            } else if (hour >= 7 && hour < 17) {
+                themeKey = 'day';
+                if (stars) stars.style.opacity = '0';
+                celestial.style.top = '20px';
+                celestial.style.right = '28px';
+            } else if (hour >= 17 && hour < 20) {
+                themeKey = 'sunset';
+                if (stars) stars.style.opacity = '0';
+                celestial.style.top = '36px';
+                celestial.style.right = '18px';
+            } else {
+                themeKey = 'night';
+                if (stars) stars.style.opacity = '1';
+                celestial.style.top = '24px';
+                celestial.style.right = '16px';
+            }
+
+            wallBg.classList.add(`theme-${themeKey}-wall`);
+            skyBg.classList.add(`theme-${themeKey}-sky`);
+            celestial.classList.add(`theme-${themeKey}-sunmoon`);
+        }
+
+        function openProfileModal() {
+            tempSelectedAvatar = userProfile.avatar || '👤';
+            document.getElementById('modal-nickname-input').value = userProfile.nickname;
+            highlightSelectedAvatarOption();
+            renderAchievements();
+            renderAnalyticsCharts();
+            document.getElementById('profile-modal').classList.remove('hidden');
+        }
+
+        function closeProfileModal() {
+            document.getElementById('profile-modal').classList.add('hidden');
+        }
+
+        function selectAvatar(avatarEmoji) {
+            tempSelectedAvatar = avatarEmoji;
+            highlightSelectedAvatarOption();
+        }
+
+        function highlightSelectedAvatarOption() {
+            const btns = document.querySelectorAll('.avatar-opt-btn');
+            btns.forEach(btn => {
+                if (btn.textContent.trim() === tempSelectedAvatar) {
+                    btn.classList.add('bg-amber-300', 'ring-2', 'ring-amber-800', 'scale-110');
+                } else {
+                    btn.classList.remove('bg-amber-300', 'ring-2', 'ring-amber-800', 'scale-110');
+                }
+            });
+        }
+
+        function saveProfileChanges() {
+            const nickInput = document.getElementById('modal-nickname-input').value.trim();
+            if (nickInput.length === 0) return;
+
+            userProfile.nickname = nickInput;
+            userProfile.avatar = tempSelectedAvatar;
+            saveUserProfile();
+            closeProfileModal();
+        }
+
+        function addXP(amount) {
+            userProfile.xp += amount;
+            let leveledUp = false;
+
+            while (userProfile.xp >= userProfile.xpToNextLevel) {
+                userProfile.xp -= userProfile.xpToNextLevel;
+                userProfile.level += 1;
+                userProfile.xpToNextLevel = Math.floor(userProfile.xpToNextLevel * 1.25);
+                leveledUp = true;
+            }
+
+            saveUserProfile();
+
+            if (leveledUp) {
+                setTimeout(() => {
+                    alert(`🎉 레벨 업! 축하합니다!\nLv.${userProfile.level} [${getRankTitle(userProfile.level)}] 달성!`);
+                }, 300);
+            }
+        }
+
+        function changePage(delta) {
+            const newIndex = currentPageIndex + delta;
+            if (newIndex < 0 || newIndex >= maxPages) return;
+
+            const notebook = document.getElementById('notebook-container');
+            const animClass = delta > 0 ? 'page-flip-next' : 'page-flip-prev';
+
+            notebook.classList.remove('page-flip-next', 'page-flip-prev');
+            void notebook.offsetWidth;
+            notebook.classList.add(animClass);
+
+            setTimeout(() => {
+                currentPageIndex = newIndex;
+                if (!pageStore[currentPageIndex]) {
+                    pageStore[currentPageIndex] = [];
+                }
+                renderTodos();
+            }, 180);
+
+            setTimeout(() => {
+                notebook.classList.remove('page-flip-next', 'page-flip-prev');
+            }, 400);
+        }
+
+        function jumpToPage(index) {
+            if (index === currentPageIndex) return;
+            currentPageIndex = index;
+            if (!pageStore[currentPageIndex]) {
+                pageStore[currentPageIndex] = [];
+            }
+            changePage(0);
+        }
+
+        // Updated Date Logic: Moving forward into future days (Today, Tomorrow, D+2...)
+        function getPageDateLabel(index) {
+            if (index === 0) return '오늘 (Page 1)';
+            if (index === 1) return '내일 (Page 2)';
+            const targetDate = new Date();
+            targetDate.setDate(targetDate.getDate() + index);
+            const m = String(targetDate.getMonth() + 1).padStart(2, '0');
+            const d = String(targetDate.getDate()).padStart(2, '0');
+            return `${m}.${d} (Page ${index + 1})`;
+        }
+
+        function openFocusModal() {
+            const todos = pageStore[currentPageIndex] || [];
+            if (todos.length === 0) return;
+
+            const completedCount = todos.filter(t => t.completed).length;
+            if (completedCount === 0) return;
+
+            selectedFocusRating = 0;
+            updateStarUI();
+            document.getElementById('confirm-focus-btn').disabled = true;
+            document.getElementById('focus-score-label').textContent = '점수를 선택해주세요';
+            document.getElementById('focus-modal').classList.remove('hidden');
+        }
+
+        function closeFocusModal() {
+            document.getElementById('focus-modal').classList.add('hidden');
+        }
+
+        function setFocusRating(rating) {
+            selectedFocusRating = rating;
+            updateStarUI();
+            
+            const labels = [
+                '',
+                '1점 - 조금 아쉬웠어요 🥺',
+                '2점 - 무난하게 공부했어요 🙂',
+                '3점 - 집중해서 공부했어요! 😊',
+                '4점 - 매우 몰입해서 공부했어요! 🔥',
+                '5점 - 최고로 완벽한 몰입! 💯🎉'
+            ];
+
+            document.getElementById('focus-score-label').textContent = labels[rating];
+            document.getElementById('confirm-focus-btn').disabled = false;
+        }
+
+        function updateStarUI() {
+            const starBtns = document.querySelectorAll('.star-btn');
+            starBtns.forEach((btn, idx) => {
+                if (idx < selectedFocusRating) {
+                    btn.classList.remove('opacity-30', 'grayscale');
+                    btn.classList.add('scale-110');
+                } else {
+                    btn.classList.add('opacity-30', 'grayscale');
+                    btn.classList.remove('scale-110');
+                }
+            });
+        }
+
+        function confirmFocusAndFinish() {
+            if (selectedFocusRating === 0) return;
+
+            const todos = pageStore[currentPageIndex] || [];
+            const completedCount = todos.filter(t => t.completed).length;
+
+            userProfile.stats.goalsFinishedCount = (userProfile.stats.goalsFinishedCount || 0) + 1;
+            if (selectedFocusRating === 5) {
+                userProfile.stats.perfectFocusCount = (userProfile.stats.perfectFocusCount || 0) + 1;
+            }
+
+            const currentHour = String(new Date().getHours()).padStart(2, '0');
+            if (!userProfile.stats.hourlyFocusRatings) userProfile.stats.hourlyFocusRatings = {};
+            if (!userProfile.stats.hourlyFocusRatings[currentHour]) {
+                userProfile.stats.hourlyFocusRatings[currentHour] = [];
+            }
+            userProfile.stats.hourlyFocusRatings[currentHour].push(selectedFocusRating);
+
+            const baseXP = 50 + (completedCount * 30);
+            const focusBonusXP = selectedFocusRating * 20;
+            const totalXP = baseXP + focusBonusXP;
+
+            closeFocusModal();
+
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 120,
+                    spread: 80,
+                    origin: { y: 0.6 }
+                });
+            }
+
+            addXP(totalXP);
+        }
+
+        function savePagesData() {
+            localStorage.setItem('cozy_pages_data', JSON.stringify(pageStore));
+        }
+
+        function renderTodos() {
+            const listEl = document.getElementById('todo-list');
+            const countEl = document.getElementById('completed-count');
+            const badgeEl = document.getElementById('page-date-badge');
+            const footerInfoEl = document.getElementById('page-footer-info');
+
+            const currentTodos = pageStore[currentPageIndex] || [];
+
+            listEl.innerHTML = '';
+            badgeEl.textContent = getPageDateLabel(currentPageIndex);
+            footerInfoEl.textContent = `Page ${currentPageIndex + 1} / ${maxPages}`;
+
+            const completed = currentTodos.filter(t => t.completed).length;
+            countEl.textContent = `${completed} / ${currentTodos.length} 완료`;
+
+            if (currentTodos.length === 0) {
+                listEl.innerHTML = `
+                    <div class="h-full flex flex-col items-center justify-center text-amber-900/40 handwritten text-xl gap-1">
+                        <span>🌱 이 페이지에 공부 계획을 추가해보세요!</span>
+                        <span class="text-sm text-amber-800/40">화면 양옆의 화살표로 페이지를 넘길 수 있습니다.</span>
+                    </div>
+                `;
+                return;
+            }
+
+            currentTodos.forEach(todo => {
+                const item = document.createElement('div');
+                item.className = `flex items-center justify-between p-2 rounded-xl border border-amber-900/10 transition ${
+                    todo.completed ? 'bg-amber-100/40 opacity-70' : 'bg-amber-50/40'
+                }`;
+
+                item.innerHTML = `
+                    <label class="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
+                        <input type="checkbox" ${todo.completed ? 'checked' : ''} onchange="toggleTodo(${todo.id})"
+                               class="w-4 h-4 accent-amber-800 rounded cursor-pointer flex-shrink-0">
+                        <span class="handwritten text-lg ${todo.completed ? 'line-through text-amber-900/40' : 'text-amber-950 font-bold'} truncate">
+                            ${escapeHtml(todo.text)}
+                        </span>
+                    </label>
+                    <div class="flex items-center gap-2 ml-2 flex-shrink-0">
+                        <span class="handwritten text-xs text-amber-800/80 bg-amber-200/50 px-2 py-0.5 rounded-lg">
+                            ⏰ ${todo.time}
+                        </span>
+                        <button onclick="deleteTodo(${todo.id})" class="text-amber-900/40 hover:text-rose-700 handwritten font-bold text-lg px-1 transition ml-1">
+                            ✕
+                        </button>
+                    </div>
+                `;
+                listEl.appendChild(item);
+            });
+        }
+
+        function addTodo(e) {
+            e.preventDefault();
+            const textInput = document.getElementById('todo-text');
+            const timeInput = document.getElementById('todo-time');
+
+            if (!pageStore[currentPageIndex]) {
+                pageStore[currentPageIndex] = [];
+            }
+
+            const newTodo = {
+                id: Date.now(),
+                text: textInput.value.trim(),
+                time: timeInput.value,
+                completed: false
+            };
+
+            pageStore[currentPageIndex].push(newTodo);
+            savePagesData();
+            textInput.value = '';
+            renderTodos();
+        }
+
+        function toggleTodo(id) {
+            if (!pageStore[currentPageIndex]) return;
+            pageStore[currentPageIndex] = pageStore[currentPageIndex].map(t => 
+                t.id === id ? { ...t, completed: !t.completed } : t
+            );
+            savePagesData();
+            renderTodos();
+        }
+
+        function deleteTodo(id) {
+            if (!pageStore[currentPageIndex]) return;
+            pageStore[currentPageIndex] = pageStore[currentPageIndex].filter(t => t.id !== id);
+            savePagesData();
+            renderTodos();
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.innerText = text;
+            return div.innerHTML;
+        }
+
+        function renderAchievements() {
+            const achievementsListEl = document.getElementById('achievements-list');
+            const unlockedCountEl = document.getElementById('achievement-unlocked-count');
+            if (!achievementsListEl) return;
+
+            const totalStudyMins = Math.floor((userProfile.stats.totalStudySeconds || 0) / 60);
+            const totalGoalsFinished = userProfile.stats.goalsFinishedCount || 0;
+            const perfectFocusCount = userProfile.stats.perfectFocusCount || 0;
+
+            const achievements = [
+                { id: 'first_step', title: '첫 걸음 🌱', desc: '목표 1회 달성하기', unlocked: totalGoalsFinished >= 1 },
+                { id: 'study_1hr', title: '몰입의 시작 ⏰', desc: '누적 공부 시간 1시간 달성', unlocked: totalStudyMins >= 60 },
+                { id: 'study_10hrs', title: '열정 마라토너 🏃', desc: '누적 공부 시간 10시간 달성', unlocked: totalStudyMins >= 600 },
+                { id: 'goal_5times', title: '목표 달성왕 🎯', desc: '목표 달성 5회 완료', unlocked: totalGoalsFinished >= 5 },
+                { id: 'perfect_focus', title: '최고의 몰입 🌟', desc: '집중도 5점 3회 기록하기', unlocked: perfectFocusCount >= 3 },
+                { id: 'level_5', title: '성장의 열매 🌳', desc: '레벨 5 달성하기', unlocked: userProfile.level >= 5 }
+            ];
+
+            const unlockedCount = achievements.filter(a => a.unlocked).length;
+            if (unlockedCountEl) unlockedCountEl.textContent = `${unlockedCount} / ${achievements.length} 달성`;
+
+            achievementsListEl.innerHTML = '';
+            achievements.forEach(ach => {
+                const isClaimed = !!userProfile.claimedAchievements[ach.id];
+                const card = document.createElement('div');
+                card.className = `p-2.5 rounded-xl border flex items-center justify-between text-sm transition ${
+                    ach.unlocked 
+                        ? 'bg-amber-100/80 border-amber-300 text-amber-950 font-bold' 
+                        : 'bg-amber-50/20 border-amber-900/10 text-amber-900/40 grayscale'
+                }`;
+
+                let btnClass = '';
+                let btnText = '';
+                let isDisabled = false;
+
+                if (isClaimed) {
+                    btnText = '✓ 달성 완료';
+                    btnClass = 'bg-amber-900/20 text-amber-900/60 cursor-default border border-amber-900/10 shadow-inner';
+                    isDisabled = true;
+                } else if (ach.unlocked) {
+                    btnText = '보상 받기';
+                    btnClass = 'bg-amber-800 hover:bg-amber-900 text-amber-100 cursor-pointer shadow-sm active:scale-95';
+                    isDisabled = false;
+                } else {
+                    btnText = '미달성';
+                    btnClass = 'bg-amber-200/40 text-amber-900/40 cursor-not-allowed';
+                    isDisabled = true;
+                }
+
+                card.innerHTML = `
+                    <div class="flex items-center gap-2.5">
+                        <span class="text-xl">${ach.unlocked ? '🏆' : '🔒'}</span>
+                        <div class="flex flex-col">
+                            <span class="leading-tight">${ach.title}</span>
+                            <span class="text-xs font-normal ${ach.unlocked ? 'text-amber-800' : 'text-amber-900/40'}">${ach.desc}</span>
+                        </div>
+                    </div>
+                    <button id="ach-btn-${ach.id}" onclick="claimAchievement('${ach.id}')" ${isDisabled ? 'disabled' : ''} class="text-xs px-2.5 py-1 rounded-md transition font-bold ${btnClass}">
+                        ${btnText}
+                    </button>
+                `;
+                achievementsListEl.appendChild(card);
+            });
+        }
+
+        function claimAchievement(achId) {
+            if (userProfile.claimedAchievements[achId]) return;
+
+            userProfile.claimedAchievements[achId] = true;
+            addXP(50);
+            saveUserProfile();
+            renderAchievements();
+        }
+
+        // Timer and clock initialization
+        setInterval(updateClock, 1000);
+        updateClock();
+        updateProfileUI();
+        renderTodos();
+    </script>
+</body>
+</html>
